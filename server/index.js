@@ -5,14 +5,16 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const userController = require("./controller/User.controller");
-const User = require("./model/User.model")
-const Message = require("./model/Message.model")
+const messageController = require("./controller/Message.Controller");
+const User = require("./model/User.model");
+const Message = require("./model/Message.model");
 
 const PORT = 8080;
 
 app.use(express.json());
 app.use(cors());
 app.use("/api", userController);
+app.use("/api", messageController);
 
 const server = http.createServer(app);
 
@@ -33,15 +35,19 @@ async function main() {
   console.log("Datbase connected");
 }
 
-
 io.on("connection", (socket) => {
   // console.log("SOCKET connnected",socket)
 
-  socket.on("sendMessage", async({ toUserName, message, fromUserName }) => {
+  socket.on("sendMessage", async ({ toUserName, message, fromUserName }) => {
     try {
       const recipient = await User.findOne({ name: toUserName });
+      console.log("recipent", recipient);
       if (recipient && recipient.socketId) {
-        io.to(recipient.socketId).emit('receiveMessage', { message });
+        io.to(recipient.socketId).emit("receiveMessage", {
+          message,
+          fromUserName,
+          toUserName,
+        });
 
         // Store the message in MongoDB
         await Message.create({
@@ -52,10 +58,10 @@ io.on("connection", (socket) => {
 
         console.log(`Message sent from ${socket.id} to ${recipient.socketId}`);
       } else {
-        console.log('Recipient not found');
+        console.log("Recipient not found");
       }
     } catch (err) {
-      console.error('Error sending private message:', err);
+      console.error("Error sending private message:", err);
     }
   });
 
@@ -70,8 +76,11 @@ io.on("connection", (socket) => {
     try {
       await User.findOneAndUpdate(
         { socketId: socket.id },
-        { $unset: { socketId: 1 } } 
+        { socketId: null, isOn: false }, // Set socketId to null and isOn to false
+        { new: true } 
       );
+
+      io.emit("UserDisconnected",{socketId: socket.id})
       console.log("Socket ID removed from user in database");
     } catch (error) {
       console.error("Error removing socketId from user:", error);

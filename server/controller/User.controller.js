@@ -8,7 +8,7 @@ router.post("/register", async (req, res) => {
   try {
     const user = await User.findOneAndUpdate(
       { name: name },
-      { $set: { socketId: socketId } },
+      { socketId: socketId, isOn: true },
       { new: true, upsert: true }
     );
 
@@ -24,9 +24,9 @@ router.get("/users", async (req, res) => {
   console.log("LoggedInUser", loggedInUser);
   try {
     // if (loggedInUser != "" && loggedInUser != null && loggedInUser!= " ") {
-      const users = await User.find({ name: { $ne: loggedInUser } }); // Fetch all users
-      // console.log(users);
-      res.status(200).json(users); // Send users as JSON
+    const users = await User.find({ name: { $ne: loggedInUser } }); // Fetch all users
+    // console.log(users);
+    res.status(200).json(users); // Send users as JSON
     // }
   } catch (error) {
     res.status(500).json({ message: "Error fetching users", error });
