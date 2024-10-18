@@ -21,7 +21,7 @@ router.post("/register", async (req, res) => {
 router.get("/users", async (req, res) => {
   const loggedInUser = req.query.username;
 
-  console.log("LoggedInUser", loggedInUser);
+  // console.log("LoggedInUser", loggedInUser);
   try {
     // if (loggedInUser != "" && loggedInUser != null && loggedInUser!= " ") {
     const users = await User.find({ name: { $ne: loggedInUser } }); // Fetch all users

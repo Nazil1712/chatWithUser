@@ -7,6 +7,8 @@ const UsersList = ({ socket }) => {
   const [selectedUser, setSelectedUser] = useState(null); // The user to send messages to
   const [message, setMessage] = useState(""); // Message to send
   const [messages, setMessages] = useState([]); // Array of received messages
+  const [typing, setTyping] = useState(false);
+  const [userTyping, setUserTyping] = useState(false);
 
   const handleRegister = async () => {
     try {
@@ -37,18 +39,50 @@ const UsersList = ({ socket }) => {
     setUsers(users);
   };
 
+  const handleSelect = (user) => {
+    setSelectedUser(user);
+    // setMessages([])
+  };
+
+  const handleTyping = (e) => {
+    let typingTimeout = "";
+    if (e.key === "Enter") {
+      sendMessage();
+    } else {
+      if (!typing) {
+        setTyping(true);
+        socket.emit("typing", {
+          socketId: selectedUser.socketId,
+          to: selectedUser.name,
+          from: username,
+        });
+      }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        setTyping(false);
+        socket.emit("stopTyping", {
+          socketId: selectedUser.socketId,
+          to: selectedUser.name,
+          from: username,
+        });
+      }, 3000); // 3 seconds delay for inactivity
+    }
+  };
+
   // Send message to the selected user
   const sendMessage = () => {
     console.log("selected User", selectedUser);
+    const timestamp = new Date().getHours() + ":" + new Date().getMinutes();
     if (selectedUser && message) {
       socket.emit("sendMessage", {
         toUserName: selectedUser.name,
         message,
         fromUserName: username,
+        timestamp,
       });
       setMessages((prev) => [
         ...prev,
-        { from: username, message, to: selectedUser.name },
+        { from: username, message, to: selectedUser.name, timestamp },
       ]);
       setMessage(""); // Clear input after sending
     }
@@ -109,12 +143,19 @@ const UsersList = ({ socket }) => {
   }, [username, selectedUser]); */
 
   useEffect(() => {
-    const handleReceiveMessage = ({ message, fromUserName, toUserName }) => {
-      console.log("Message received", socket.id, message);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { from: fromUserName, message, to: toUserName },
-      ]);
+    const handleReceiveMessage = ({
+      message,
+      fromUserName,
+      toUserName,
+      timestamp,
+    }) => {
+      // console.log("Message received", socket.id, message);
+      if (fromUserName == selectedUser.name) {
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { from: fromUserName, message, to: toUserName, timestamp },
+        ]);
+      }
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
@@ -131,14 +172,22 @@ const UsersList = ({ socket }) => {
       fetchUsers(); // Fetch users when a new user connects
     });
 
-    socket.on("UserDisconnected",({socketId})=>{
-      fetchUsers()
-    })
+    socket.on("UserDisconnected", ({ socketId }) => {
+      fetchUsers();
+    });
 
-    return()=>{
-      socket.removeListener("newConnected")
-      socket.removeListener("UserDisconnected")
-    }
+    socket.on("userTyping", () => {
+      setUserTyping(true);
+    });
+
+    socket.on("userStoppedTyping", () => {
+      setUserTyping(false);
+    });
+
+    return () => {
+      socket.removeListener("newConnected");
+      socket.removeListener("UserDisconnected");
+    };
   }, [socket, fetchUsers]);
 
   useEffect(() => {
@@ -180,7 +229,11 @@ const UsersList = ({ socket }) => {
                       {user.isOn && <span className="online-indicator"></span>}
                     </span>
                     {user.name}
-                    <button onClick={() => setSelectedUser(user)}>
+                    <button
+                      onClick={() => {
+                        handleSelect(user);
+                      }}
+                    >
                       Message
                     </button>
                   </li>
@@ -198,29 +251,37 @@ const UsersList = ({ socket }) => {
               <div className="chat-box">
                 {messages &&
                   messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`message ${
-                        msg.from === username ? "user" : "other"
-                      }`}
-                    >
-                      <strong>{msg.from}:</strong> {msg.message}
-                    </div>
+                    <>
+                      <div
+                        key={index}
+                        className={`message ${
+                          msg.from === username ? "user" : "other"
+                        }`}
+                      >
+                        {msg.message}
+                      </div>
+                      <div
+                        className={`message-meta ${
+                          msg.from === username ? "user" : "other"
+                        }`}
+                      >
+                        {msg.from} : {msg.timestamp}
+                      </div>
+                    </>
                   ))}
               </div>
 
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type your message"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    sendMessage();
-                  }
-                }}
-              />
-              <button onClick={sendMessage}>Send Message</button>
+              <div className="flex">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={`Send message to ${selectedUser.name}`}
+                  onKeyDown={handleTyping}
+                />
+                <button onClick={sendMessage}>Send</button>
+              </div>
+              {userTyping && <span className="user-typing">{selectedUser.name} is Typing.........</span>}
             </div>
           )}
         </div>

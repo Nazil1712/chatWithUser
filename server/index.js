@@ -38,15 +38,16 @@ async function main() {
 io.on("connection", (socket) => {
   // console.log("SOCKET connnected",socket)
 
-  socket.on("sendMessage", async ({ toUserName, message, fromUserName }) => {
+  socket.on("sendMessage", async ({ toUserName, message, fromUserName, timestamp }) => {
     try {
       const recipient = await User.findOne({ name: toUserName });
-      console.log("recipent", recipient);
+      // console.log("recipent", recipient);
       if (recipient && recipient.socketId) {
         io.to(recipient.socketId).emit("receiveMessage", {
           message,
           fromUserName,
           toUserName,
+          timestamp
         });
 
         // Store the message in MongoDB
@@ -56,9 +57,14 @@ io.on("connection", (socket) => {
           message,
         });
 
-        console.log(`Message sent from ${socket.id} to ${recipient.socketId}`);
+        // console.log(`Message sent from ${socket.id} to ${recipient.socketId}`);
       } else {
-        console.log("Recipient not found");
+        // console.log("Recipient not found");
+        await Message.create({
+          from: fromUserName,
+          to: toUserName,
+          message,
+        });
       }
     } catch (err) {
       console.error("Error sending private message:", err);
@@ -66,8 +72,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("newUserRegistered", () => {
-    console.log("newUserRegistered");
+    // console.log("newUserRegistered");
     io.emit("newConnected");
+  });
+
+  socket.on("typing",({to, socketId, from})=>{
+    console.log(from, "User is typing", to, socketId )
+    socket.to(socketId).emit("userTyping")
+  })
+
+  socket.on('stopTyping', ({to, socketId, from}) => {
+    socket.to(socketId).emit('userStoppedTyping');
   });
 
   socket.on("disconnect", async () => {
@@ -81,7 +96,7 @@ io.on("connection", (socket) => {
       );
 
       io.emit("UserDisconnected",{socketId: socket.id})
-      console.log("Socket ID removed from user in database");
+      // console.log("Socket ID removed from user in database");
     } catch (error) {
       console.error("Error removing socketId from user:", error);
     }

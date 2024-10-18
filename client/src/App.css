@@ -63,6 +63,10 @@ li span {
 }
 
 
+.flex {
+  display: flex;
+}
+
 /* Responsive Design */
 @media (max-width: 600px) {
   .users-list-container {
@@ -123,6 +127,18 @@ li span {
   border-bottom-left-radius: 0;
 }
 
+.message-meta.user {
+  align-self: flex-end;
+  font-size: x-small;
+}
+
+.message-meta.other {
+  align-self: flex-start;
+  font-size: x-small;
+}
+
+
+
 /* .user {
   float: right;
 }
@@ -146,3 +162,8 @@ button {
   cursor: pointer;
 }
 
+
+.user-typing {
+  font-size: small;
+  color: #555;
+}
